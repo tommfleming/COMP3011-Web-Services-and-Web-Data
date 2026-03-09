@@ -4,6 +4,7 @@ from .views import (
     ShelfDetailView,
     ShelfItemCreateView,
     ShelfItemDeleteView,
+    PublicShelfListView,
     ReadingLogListCreateView,
     ReadingLogDetailView,
     ReviewListCreateView,
