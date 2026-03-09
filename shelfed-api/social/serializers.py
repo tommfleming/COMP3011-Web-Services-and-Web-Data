@@ -69,12 +69,37 @@ class ReviewSerializer(serializers.ModelSerializer):
         queryset=Book.objects.all(),
         source="book",
         write_only=True,
+        required=False,
     )
 
     class Meta:
         model = Review
         fields = ["id", "user", "book", "book_id", "rating", "text", "created_at"]
         read_only_fields = ["user", "book", "created_at"]
+
+    def validate(self, attrs):
+        request = self.context["request"]
+
+        book = attrs.get("book")
+        if book is None and self.instance is not None:
+            book = self.instance.book
+
+        if book is None:
+            raise serializers.ValidationError(
+                {"book_id": "This field is required."}
+            )
+
+        queryset = Review.objects.filter(user=request.user, book=book)
+
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                {"book_id": "You have already reviewed this book."}
+            )
+
+        return attrs
 
 
 class FollowSerializer(serializers.ModelSerializer):
