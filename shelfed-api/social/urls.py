@@ -20,6 +20,7 @@ urlpatterns = [
     path("shelves/<int:pk>/", ShelfDetailView.as_view(), name="shelf-detail"),
     path("shelves/<int:shelf_id>/items/", ShelfItemCreateView.as_view(), name="shelf-item-create"),
     path("shelves/<int:shelf_id>/items/<int:pk>/", ShelfItemDeleteView.as_view(), name="shelf-item-delete"),
+    path("public-shelves/", PublicShelfListView.as_view(), name="public-shelf-list"),
 
     path("logs/", ReadingLogListCreateView.as_view(), name="log-list-create"),
     path("logs/<int:pk>/", ReadingLogDetailView.as_view(), name="log-detail"),

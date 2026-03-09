@@ -49,6 +49,12 @@ class ShelfItemDeleteView(generics.DestroyAPIView):
     def get_queryset(self):
         return ShelfItem.objects.filter(shelf__owner=self.request.user, shelf_id=self.kwargs["shelf_id"])
 
+class PublicShelfListView(generics.ListAPIView):
+    serializer_class = ShelfSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Shelf.objects.filter(is_public=True).select_related("owner").prefetch_related("items__book")
 
 class ReadingLogListCreateView(generics.ListCreateAPIView):
     serializer_class = ReadingLogSerializer
