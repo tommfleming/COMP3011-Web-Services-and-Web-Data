@@ -1,7 +1,18 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+
 from .models import Shelf, ShelfItem, ReadingLog, Review, Follow
 from books.models import Book
 from books.serializers import BookSerializer
+
+User = get_user_model()
+
+
+class SimpleUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username"]
 
 
 class ShelfItemSerializer(serializers.ModelSerializer):
@@ -15,10 +26,11 @@ class ShelfItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShelfItem
         fields = ["id", "book", "book_id", "added_at"]
-        read_only_fields = ["id", "added_at", "book"]
+        read_only_fields = ["id", "book", "added_at"]
 
 
 class ShelfSerializer(serializers.ModelSerializer):
+    owner = SimpleUserSerializer(read_only=True)
     items = ShelfItemSerializer(many=True, read_only=True)
 
     class Meta:
@@ -28,21 +40,89 @@ class ShelfSerializer(serializers.ModelSerializer):
 
 
 class ReadingLogSerializer(serializers.ModelSerializer):
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(),
+        source="book",
+        write_only=True,
+    )
+
     class Meta:
         model = ReadingLog
-        fields = ["id", "user", "book", "status", "started_at", "finished_at"]
-        read_only_fields = ["user"]
+        fields = [
+            "id",
+            "book",
+            "book_id",
+            "status",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "book"]
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    user = SimpleUserSerializer(read_only=True)
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(),
+        source="book",
+        write_only=True,
+    )
+
     class Meta:
         model = Review
-        fields = ["id", "user", "book", "rating", "text", "created_at"]
-        read_only_fields = ["user", "created_at"]
+        fields = ["id", "user", "book", "book_id", "rating", "text", "created_at"]
+        read_only_fields = ["user", "book", "created_at"]
 
 
 class FollowSerializer(serializers.ModelSerializer):
+    follower = SimpleUserSerializer(read_only=True)
+    following = SimpleUserSerializer(read_only=True)
+    following_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="following",
+        write_only=True,
+    )
+
     class Meta:
         model = Follow
-        fields = ["id", "follower", "following", "created_at"]
-        read_only_fields = ["follower", "created_at"]
+        fields = ["id", "follower", "following", "following_id", "created_at"]
+        read_only_fields = ["id", "follower", "following", "created_at"]
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        if request.user == attrs["following"]:
+            raise serializers.ValidationError("You cannot follow yourself.")
+        return attrs
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "password"]
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        return User.objects.create_user(
+            username=validated_data["username"],
+            email=validated_data.get("email", ""),
+            password=validated_data["password"],
+        )
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+
+class MeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]

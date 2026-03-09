@@ -15,7 +15,7 @@ class ShelfItemAdmin(admin.ModelAdmin):
 
 @admin.register(ReadingLog)
 class ReadingLogAdmin(admin.ModelAdmin):
-    list_display = ["user", "book", "status", "started_at", "finished_at"]
+    list_display = ["user", "book", "status", "started_at", "finished_at", "updated_at"]
 
 
 @admin.register(Review)

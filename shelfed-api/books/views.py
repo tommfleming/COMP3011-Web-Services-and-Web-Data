@@ -1,8 +1,10 @@
-from rest_framework import generics
 from django.db.models import Q
 from rest_framework import generics
+
 from .models import Book
 from .serializers import BookSerializer
+from social.models import Review
+from social.serializers import ReviewSerializer
 
 
 class BookListView(generics.ListAPIView):
@@ -30,3 +32,10 @@ class BookListView(generics.ListAPIView):
 class BookDetailView(generics.RetrieveAPIView):
     queryset = Book.objects.prefetch_related("authors").all()
     serializer_class = BookSerializer
+
+
+class BookReviewListView(generics.ListAPIView):
+    serializer_class = ReviewSerializer
+
+    def get_queryset(self):
+        return Review.objects.filter(book_id=self.kwargs["book_id"]).select_related("user", "book").order_by("-created_at")
