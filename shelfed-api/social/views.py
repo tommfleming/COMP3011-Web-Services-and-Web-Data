@@ -285,8 +285,11 @@ class FriendsListView(APIView):
         followers_only = []
 
         for relationship in following_relationships:
+            user_data = SimpleUserSerializer(relationship.following).data
             payload = {
-                "user": SimpleUserSerializer(relationship.following).data,
+                "id": relationship.following.id,
+                "username": relationship.following.username,
+                "user": user_data,
                 "follow_id": relationship.id,
             }
 
@@ -300,6 +303,8 @@ class FriendsListView(APIView):
             if relationship.follower_id not in following_id_set:
                 followers_only.append(
                     {
+                        "id": relationship.follower.id,
+                        "username": relationship.follower.username,
                         "user": SimpleUserSerializer(relationship.follower).data,
                         "follower_user_id": relationship.follower_id,
                     }
@@ -312,7 +317,6 @@ class FriendsListView(APIView):
                 "followers_only": followers_only,
             }
         )
-
 
 class UserSearchView(APIView):
     permission_classes = [permissions.IsAuthenticated]
