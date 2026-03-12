@@ -1,63 +1,80 @@
 import { useEffect, useState } from "react";
-import BookCard from "../components/BookCard";
 import { api } from "../api/client";
+import BookCard from "../components/BookCard";
 
 function SavedBooksPage() {
-  const [books, setBooks] = useState([]);
-  const [error, setError] = useState("");
+    const [savedBooks, setSavedBooks] = useState([]);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    loadSavedBooks();
-  }, []);
+    useEffect(() => {
+        loadSavedBooks();
+    }, []);
 
-  async function loadSavedBooks() {
-    setError("");
-    try {
-      const data = await api.getSavedBooks();
-      setBooks(data);
-    } catch (err) {
-      setError(err.message);
+    async function loadSavedBooks() {
+        setError("");
+        try {
+            const data = await api.getSavedBooks();
+            setSavedBooks(data || []);
+        } catch (err) {
+            setError(err.message);
+        }
     }
-  }
 
-  async function handleRemove(bookId) {
-    try {
-      await api.removeSavedBook(bookId);
-      setBooks((current) => current.filter((book) => book.id !== bookId));
-    } catch (err) {
-      alert(err.message);
+    async function handleToggleSave(bookId, isSaved) {
+        if (!isSaved) return;
+
+        try {
+            await api.removeSavedBook(bookId);
+            setSavedBooks((current) => current.filter((book) => book.id !== bookId));
+            setNotice("Removed from Saved Books.");
+            window.clearTimeout(window.__shelfedSavedPageTimer);
+            window.__shelfedSavedPageTimer = window.setTimeout(() => {
+                setNotice("");
+            }, 2200);
+        } catch (err) {
+            setNotice(err.message);
+            window.clearTimeout(window.__shelfedSavedPageTimer);
+            window.__shelfedSavedPageTimer = window.setTimeout(() => {
+                setNotice("");
+            }, 2200);
+        }
     }
-  }
 
-  return (
-    <section className="page-grid">
-      <div className="stack">
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">Saved books</p>
-            <h1>Books you want to come back to</h1>
-          </div>
-        </div>
+    return (
+        <section className="page-grid">
+            <div className="stack">
+                <div className="page-heading">
+                    <div>
+                        <p className="eyebrow">Saved books</p>
+                        <h1>Your saved list</h1>
+                        <p className="muted">
+                            Keep books here for later and remove them whenever you like.
+                        </p>
+                    </div>
+                </div>
 
-        {error && <p className="form-error">{error}</p>}
+                {notice && <p className="inline-toast">{notice}</p>}
+                {error && <p className="form-error">{error}</p>}
 
-        {books.length === 0 ? (
-          <div className="panel">You have not saved any books yet.</div>
-        ) : (
-          <div className="book-grid">
-            {books.map((book) => (
-              <BookCard
-                key={book.id}
-                book={book}
-                showRemove
-                onRemove={handleRemove}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
+                {savedBooks.length === 0 ? (
+                    <div className="panel">You have not saved any books yet.</div>
+                ) : (
+                    <div className="book-grid">
+                        {savedBooks.map((book) => (
+                            <BookCard
+                                key={book.id}
+                                book={book}
+                                showSave
+                                isSaved
+                                onToggleSave={handleToggleSave}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </section>
+    );
 }
 
 export default SavedBooksPage;
