@@ -1,6 +1,7 @@
 from django.db.models import Max, Min, Q
 
 from rest_framework import generics, permissions
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,8 +11,15 @@ from social.models import Review
 from social.serializers import ReviewSerializer
 
 
+class BookPagination(PageNumberPagination):
+    page_size = 24
+    page_size_query_param = "page_size"
+    max_page_size = 500
+
+
 class BookListView(generics.ListAPIView):
     serializer_class = BookSerializer
+    pagination_class = BookPagination
 
     def get_queryset(self):
         queryset = Book.objects.prefetch_related("authors").all()
@@ -51,7 +59,7 @@ class BookListView(generics.ListAPIView):
             except (TypeError, ValueError):
                 pass
 
-        return queryset.distinct()
+        return queryset.distinct().order_by("title", "id")
 
 
 class BookFilterOptionsView(APIView):

@@ -70,7 +70,10 @@ function DiscoverPage() {
         setError("");
 
         try {
-            const data = await api.getBooks(nextFilters);
+            const data = await api.getBooks({
+                ...nextFilters,
+                page_size: 500,
+            });
             setBooks(data.results || []);
         } catch (err) {
             setError(err.message);
