@@ -549,3 +549,133 @@ select {
         align-items: flex-start;
     }
 }
+
+.inline-toast {
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    background: #111827;
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.field-error {
+    margin-top: 0.35rem;
+    color: #c62828;
+    font-size: 0.9rem;
+}
+
+.book-card__actions {
+    padding-top: 0.75rem;
+}
+
+.filter-grid--discover {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+}
+
+    .filter-grid--discover .filter-grid__full,
+    .filter-grid--discover .filter-actions {
+        grid-column: 1 / -1;
+    }
+
+.label-heading {
+    display: block;
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+}
+
+.range-values {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.dual-range {
+    position: relative;
+    height: 2.2rem;
+}
+
+.dual-range__track,
+.dual-range__selected {
+    position: absolute;
+    top: 50%;
+    height: 0.35rem;
+    transform: translateY(-50%);
+    border-radius: 999px;
+}
+
+.dual-range__track {
+    left: 0;
+    right: 0;
+    background: #d7dbe2;
+}
+
+.dual-range__selected {
+    background: #2563eb;
+}
+
+.dual-range__input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    width: 100%;
+    background: transparent;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+    .dual-range__input::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        pointer-events: auto;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px #2563eb;
+        cursor: pointer;
+    }
+
+    .dual-range__input::-moz-range-thumb {
+        pointer-events: auto;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px #2563eb;
+        cursor: pointer;
+    }
+
+    .dual-range__input::-webkit-slider-runnable-track {
+        background: transparent;
+    }
+
+    .dual-range__input::-moz-range-track {
+        background: transparent;
+    }
+
+.profile-reading-card {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.inline-form {
+    display: grid;
+    gap: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .filter-grid--discover {
+        grid-template-columns: 1fr;
+    }
+}
