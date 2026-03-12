@@ -8,12 +8,14 @@ function ProfilePage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [isCreatingShelf, setIsCreatingShelf] = useState(false);
+
     const [finishTargetId, setFinishTargetId] = useState(null);
     const [finishForm, setFinishForm] = useState({
         finished_at: "",
         rating: "",
         review: "",
     });
+    const [finishErrors, setFinishErrors] = useState({});
 
     useEffect(() => {
         loadProfile();
@@ -38,7 +40,7 @@ function ProfilePage() {
             setSuccess("Shelf created.");
             await loadProfile();
         } catch (err) {
-            setError(err.message);
+            throw err;
         } finally {
             setIsCreatingShelf(false);
         }
@@ -56,12 +58,24 @@ function ProfilePage() {
         }
     }
 
+    async function handleDeleteShelf(shelfId) {
+        setError("");
+        setSuccess("");
+        try {
+            await api.deleteShelf(shelfId);
+            setSuccess("Shelf removed.");
+            await loadProfile();
+        } catch (err) {
+            setError(err.message);
+        }
+    }
+
     async function handleRemoveReadingLog(logId) {
         setError("");
         setSuccess("");
         try {
             await api.deleteReadingLog(logId);
-            setSuccess("Reading log removed.");
+            setSuccess("Reading entry removed.");
             await loadProfile();
         } catch (err) {
             setError(err.message);
@@ -71,14 +85,14 @@ function ProfilePage() {
     async function handleFinishBook(logId) {
         setError("");
         setSuccess("");
+        setFinishErrors({});
 
-        if (!finishForm.finished_at) {
-            setError("Please choose a finished date.");
-            return;
-        }
+        const nextErrors = {};
+        if (!finishForm.finished_at) nextErrors.finished_at = "Please choose a finished date.";
+        if (!finishForm.rating) nextErrors.rating = "A rating is required.";
 
-        if (!finishForm.rating) {
-            setError("Please add a rating when finishing a book.");
+        if (Object.keys(nextErrors).length > 0) {
+            setFinishErrors(nextErrors);
             return;
         }
 
@@ -95,11 +109,14 @@ function ProfilePage() {
                 rating: "",
                 review: "",
             });
-
             setSuccess("Book marked as finished.");
             await loadProfile();
         } catch (err) {
-            setError(err.message);
+            if (err.fields) {
+                setFinishErrors(err.fields);
+            } else {
+                setError(err.message);
+            }
         }
     }
 
@@ -147,8 +164,8 @@ function ProfilePage() {
                                 <p className="muted">
                                     {log.book.authors?.map((author) => author.name).join(", ")}
                                 </p>
+
                                 <div className="button-row">
-                                    <span className="badge">{log.status}</span>
                                     <button
                                         className="button button--ghost"
                                         type="button"
@@ -161,6 +178,7 @@ function ProfilePage() {
                                         type="button"
                                         onClick={() => {
                                             setFinishTargetId(log.id);
+                                            setFinishErrors({});
                                             setFinishForm({
                                                 finished_at: "",
                                                 rating: "",
@@ -186,6 +204,9 @@ function ProfilePage() {
                                                     }))
                                                 }
                                             />
+                                            {finishErrors.finished_at && (
+                                                <p className="field-error">{finishErrors.finished_at}</p>
+                                            )}
                                         </label>
 
                                         <label>
@@ -202,6 +223,9 @@ function ProfilePage() {
                                                     }))
                                                 }
                                             />
+                                            {finishErrors.rating && (
+                                                <p className="field-error">{finishErrors.rating}</p>
+                                            )}
                                         </label>
 
                                         <label>
@@ -251,8 +275,18 @@ function ProfilePage() {
                                 <h3>
                                     <Link to={`/books/${log.book.id}`}>{log.book.title}</Link>
                                 </h3>
-                                <p className="muted">{log.book.authors?.map((author) => author.name).join(", ")}</p>
-                                <p className="badge">{log.status}</p>
+                                <p className="muted">
+                                    {log.book.authors?.map((author) => author.name).join(", ")}
+                                </p>
+                                <div className="button-row">
+                                    <button
+                                        className="button button--ghost"
+                                        type="button"
+                                        onClick={() => handleRemoveReadingLog(log.id)}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </article>
                         ))
                     )}
@@ -265,7 +299,7 @@ function ProfilePage() {
                 <div className="stack">
                     <h2>My shelves</h2>
                     {shelves.length === 0 ? (
-                        <div className="panel">Create a shelf to feature book collections on your profile.</div>
+                        <div className="panel">Create a shelf to feature collections on your profile.</div>
                     ) : (
                         shelves.map((shelf) => (
                             <article className="card" key={shelf.id}>
@@ -276,10 +310,25 @@ function ProfilePage() {
                                             {shelf.is_public ? "Visible on your public profile" : "Private shelf"}
                                         </p>
                                     </div>
-                                    <button className="button button--ghost" onClick={() => handleToggleShelf(shelf)}>
-                                        {shelf.is_public ? "Make private" : "Make public"}
-                                    </button>
+
+                                    <div className="button-row">
+                                        <button
+                                            className="button button--ghost"
+                                            type="button"
+                                            onClick={() => handleToggleShelf(shelf)}
+                                        >
+                                            {shelf.is_public ? "Make private" : "Make public"}
+                                        </button>
+                                        <button
+                                            className="button button--ghost"
+                                            type="button"
+                                            onClick={() => handleDeleteShelf(shelf.id)}
+                                        >
+                                            Remove shelf
+                                        </button>
+                                    </div>
                                 </div>
+
                                 {shelf.items.length === 0 ? (
                                     <p className="muted">No books added yet.</p>
                                 ) : (

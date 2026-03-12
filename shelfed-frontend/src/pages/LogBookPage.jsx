@@ -29,9 +29,10 @@ function LogBookPage() {
         finished_at: "",
     });
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [generalError, setGeneralError] = useState("");
     const [success, setSuccess] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (search.trim().length < 2) {
@@ -53,25 +54,58 @@ function LogBookPage() {
 
     const duplicateMatch = useMemo(() => {
         const title = titleCase(newBook.title || "");
-        return existingBooks.find((book) => book.title.toLowerCase() === title.toLowerCase());
-    }, [existingBooks, newBook.title]);
+        const author = titleCase(newBook.author || "");
+
+        return existingBooks.find((book) => {
+            const sameTitle = book.title.toLowerCase() === title.toLowerCase();
+            const sameAuthor = book.authors?.some(
+                (item) => item.name.toLowerCase() === author.toLowerCase()
+            );
+            return sameTitle && sameAuthor;
+        });
+    }, [existingBooks, newBook.title, newBook.author]);
+
+    function handleStatusChange(value) {
+        if (value === "finished") {
+            setLogForm((current) => ({ ...current, status: value }));
+            return;
+        }
+
+        setLogForm((current) => ({
+            ...current,
+            status: value,
+            rating: "",
+            review: "",
+            finished_at: "",
+        }));
+    }
 
     async function handleSubmit(event) {
         event.preventDefault();
-        setError("");
+        setGeneralError("");
         setSuccess("");
+        setFieldErrors({});
         setIsSubmitting(true);
 
         try {
             let bookId = selectedBook?.id;
 
             if (!bookId) {
-                if (!newBook.title.trim() || !newBook.author.trim()) {
-                    throw new Error("Please choose an existing book or provide a title and author for a new one.");
+                const nextErrors = {};
+
+                if (!newBook.title.trim()) nextErrors.title = "Please enter a title.";
+                if (!newBook.author.trim()) nextErrors.author = "Please enter an author.";
+
+                if (Object.keys(nextErrors).length > 0) {
+                    setFieldErrors(nextErrors);
+                    return;
                 }
 
                 if (duplicateMatch) {
-                    throw new Error("A very similar book already exists. Select the existing book instead of creating a duplicate.");
+                    setFieldErrors({
+                        title: "A matching book already exists. Select it from the search results instead.",
+                    });
+                    return;
                 }
 
                 const createdBook = await api.createBook({
@@ -81,25 +115,28 @@ function LogBookPage() {
                     description: newBook.description,
                     published_year: newBook.published_year ? Number(newBook.published_year) : null,
                 });
+
                 bookId = createdBook.id;
             }
 
-            const payload = {
+            const logPayload = {
                 book_id: bookId,
                 status: logForm.status,
             };
 
             if (logForm.status === "finished") {
                 if (!logForm.finished_at) {
-                    throw new Error("Please add a finished date.");
+                    setFieldErrors({ finished_at: "Please add a finished date." });
+                    return;
                 }
                 if (!logForm.rating) {
-                    throw new Error("A rating is required when marking a book as finished.");
+                    setFieldErrors({ rating: "A rating is required for finished books." });
+                    return;
                 }
-                payload.finished_at = logForm.finished_at;
+                logPayload.finished_at = logForm.finished_at;
             }
 
-            await api.createReadingLog(payload);
+            await api.createReadingLog(logPayload);
 
             if (logForm.status === "finished") {
                 await api.createReview({
@@ -127,25 +164,14 @@ function LogBookPage() {
                 finished_at: "",
             });
         } catch (err) {
-            setError(err.message);
+            if (err.fields && Object.keys(err.fields).length > 0) {
+                setFieldErrors(err.fields);
+            } else {
+                setGeneralError(err.message);
+            }
         } finally {
             setIsSubmitting(false);
         }
-    }
-
-    function handleStatusChange(value) {
-        if (value === "finished") {
-            setLogForm((current) => ({ ...current, status: value }));
-            return;
-        }
-
-        setLogForm((current) => ({
-            ...current,
-            status: value,
-            rating: "",
-            review: "",
-            finished_at: "",
-        }));
     }
 
     const showFinishedFields = logForm.status === "finished";
@@ -156,7 +182,7 @@ function LogBookPage() {
                 <div className="card form-stack">
                     <h1>Log a book</h1>
                     <p className="muted">
-                        Search the current catalogue first. If the book does not exist, add it through the form below.
+                        Search the catalogue first. If the book does not exist, add it below.
                     </p>
 
                     <label>
@@ -188,7 +214,7 @@ function LogBookPage() {
                 </div>
 
                 <form className="card form-stack" onSubmit={handleSubmit}>
-                    <h2>{selectedBook ? "Using selected catalogue book" : "Add a new book to the catalogue"}</h2>
+                    <h2>{selectedBook ? "Using selected catalogue book" : "Add a new catalogue book"}</h2>
 
                     {selectedBook ? (
                         <div className="panel">
@@ -210,6 +236,7 @@ function LogBookPage() {
                                         setNewBook((current) => ({ ...current, title: titleCase(event.target.value) }))
                                     }
                                 />
+                                {fieldErrors.title && <p className="field-error">{fieldErrors.title}</p>}
                             </label>
 
                             <label>
@@ -223,6 +250,7 @@ function LogBookPage() {
                                         setNewBook((current) => ({ ...current, author: titleCase(event.target.value) }))
                                     }
                                 />
+                                {fieldErrors.author && <p className="field-error">{fieldErrors.author}</p>}
                             </label>
 
                             <label>
@@ -256,12 +284,6 @@ function LogBookPage() {
                                     }
                                 />
                             </label>
-
-                            {duplicateMatch && (
-                                <p className="form-error">
-                                    Similar existing book found: {duplicateMatch.title}. Select it above instead of creating a duplicate.
-                                </p>
-                            )}
                         </>
                     )}
 
@@ -288,6 +310,9 @@ function LogBookPage() {
                                         setLogForm((current) => ({ ...current, finished_at: event.target.value }))
                                     }
                                 />
+                                {fieldErrors.finished_at && (
+                                    <p className="field-error">{fieldErrors.finished_at}</p>
+                                )}
                             </label>
 
                             <label>
@@ -301,6 +326,7 @@ function LogBookPage() {
                                         setLogForm((current) => ({ ...current, rating: event.target.value }))
                                     }
                                 />
+                                {fieldErrors.rating && <p className="field-error">{fieldErrors.rating}</p>}
                             </label>
 
                             <label>
@@ -316,7 +342,7 @@ function LogBookPage() {
                         </>
                     )}
 
-                    {error && <p className="form-error">{error}</p>}
+                    {generalError && <p className="form-error">{generalError}</p>}
                     {success && <p className="form-success">{success}</p>}
 
                     <button className="button" disabled={isSubmitting} type="submit">
