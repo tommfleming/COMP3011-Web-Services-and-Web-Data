@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Shelf, ShelfItem, ReadingLog, Review, Follow
+from .models import Follow, ReadingLog, Review, Shelf, ShelfItem
 from books.models import Book
 from books.serializers import BookSerializer
 
@@ -45,6 +45,7 @@ class ReadingLogSerializer(serializers.ModelSerializer):
         queryset=Book.objects.all(),
         source="book",
         write_only=True,
+        required=False,
     )
 
     class Meta:
@@ -60,6 +61,27 @@ class ReadingLogSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at", "book"]
+
+    def validate(self, attrs):
+        request = self.context["request"]
+
+        book = attrs.get("book")
+        if book is None and self.instance is not None:
+            book = self.instance.book
+
+        if book is None:
+            raise serializers.ValidationError({"book_id": "This field is required."})
+
+        queryset = ReadingLog.objects.filter(user=request.user, book=book)
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                {"book_id": "You already have a reading log for this book."}
+            )
+
+        return attrs
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -85,12 +107,9 @@ class ReviewSerializer(serializers.ModelSerializer):
             book = self.instance.book
 
         if book is None:
-            raise serializers.ValidationError(
-                {"book_id": "This field is required."}
-            )
+            raise serializers.ValidationError({"book_id": "This field is required."})
 
         queryset = Review.objects.filter(user=request.user, book=book)
-
         if self.instance is not None:
             queryset = queryset.exclude(pk=self.instance.pk)
 
@@ -118,8 +137,14 @@ class FollowSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context["request"]
-        if request.user == attrs["following"]:
+        following = attrs["following"]
+
+        if request.user == following:
             raise serializers.ValidationError("You cannot follow yourself.")
+
+        if Follow.objects.filter(follower=request.user, following=following).exists():
+            raise serializers.ValidationError("You already follow this user.")
+
         return attrs
 
 

@@ -14,6 +14,7 @@ class Author(models.Model):
 class Book(models.Model):
     SOURCE_CHOICES = [
         ("openlibrary", "Open Library"),
+        ("manual", "Manual"),
     ]
 
     title = models.CharField(max_length=255)

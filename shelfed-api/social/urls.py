@@ -1,21 +1,26 @@
 from django.urls import path
+
 from .views import (
-    ShelfListCreateView,
-    ShelfDetailView,
-    PublicShelfListView,
+    FeedView,
+    FollowDetailView,
+    FollowListCreateView,
+    FriendsListView,
+    MyProfileView,
+    PublicProfileView,
     PublicShelfDetailView,
+    PublicShelfListView,
+    ReadingLogDetailView,
+    ReadingLogListCreateView,
+    RecommendationView,
+    ReviewDetailView,
+    ReviewListCreateView,
+    SavedBookDeleteView,
+    SavedBooksView,
+    ShelfDetailView,
     ShelfItemCreateView,
     ShelfItemDeleteView,
-    ReadingLogListCreateView,
-    ReadingLogDetailView,
-    ReviewListCreateView,
-    ReviewDetailView,
-    FollowListCreateView,
-    FollowDetailView,
-    PublicProfileView,
-    FeedView,
+    ShelfListCreateView,
     WeeklyRecapView,
-    RecommendationView,
 )
 
 urlpatterns = [
@@ -24,9 +29,15 @@ urlpatterns = [
     path("shelves/<int:shelf_id>/items/", ShelfItemCreateView.as_view(), name="shelf-item-create"),
     path("shelves/<int:shelf_id>/items/<int:pk>/", ShelfItemDeleteView.as_view(), name="shelf-item-delete"),
 
+    path("saved-books/", SavedBooksView.as_view(), name="saved-books"),
+    path("saved-books/<int:book_id>/", SavedBookDeleteView.as_view(), name="saved-book-delete"),
+
     path("public-shelves/", PublicShelfListView.as_view(), name="public-shelf-list"),
     path("public-shelves/<int:pk>/", PublicShelfDetailView.as_view(), name="public-shelf-detail"),
+
+    path("profile/", MyProfileView.as_view(), name="my-profile"),
     path("users/<str:username>/", PublicProfileView.as_view(), name="public-profile"),
+    path("friends/", FriendsListView.as_view(), name="friends-list"),
 
     path("logs/", ReadingLogListCreateView.as_view(), name="log-list-create"),
     path("logs/<int:pk>/", ReadingLogDetailView.as_view(), name="log-detail"),
