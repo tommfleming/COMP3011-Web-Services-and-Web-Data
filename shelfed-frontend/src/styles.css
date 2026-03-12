@@ -355,3 +355,61 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.filter-grid--discover {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+
+    .filter-grid--discover .filter-grid__full,
+    .filter-grid--discover .filter-actions {
+        grid-column: 1 / -1;
+    }
+
+.range-controls {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.range-values {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.profile-reading-card {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.inline-form {
+    display: grid;
+    gap: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border);
+}
+
+.friend-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.friend-list__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+    .friend-list__item:last-child {
+        border-bottom: 0;
+    }
+
+.friend-list__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}

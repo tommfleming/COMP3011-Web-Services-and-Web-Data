@@ -1,189 +1,233 @@
 const API_BASE = "/api";
 
 function getToken() {
-  return localStorage.getItem("shelfed_token");
+    return localStorage.getItem("shelfed_token");
 }
 
 async function request(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
+    const headers = new Headers(options.headers || {});
+    headers.set("Accept", "application/json");
 
-  const isJsonBody =
-    options.body &&
-    !(options.body instanceof FormData) &&
-    !headers.has("Content-Type");
+    const isJsonBody =
+        options.body &&
+        !(options.body instanceof FormData) &&
+        !headers.has("Content-Type");
 
-  if (isJsonBody) {
-    headers.set("Content-Type", "application/json");
-  }
+    if (isJsonBody) {
+        headers.set("Content-Type", "application/json");
+    }
 
-  const token = getToken();
-  if (token) {
-    headers.set("Authorization", `Token ${token}`);
-  }
+    const token = getToken();
+    if (token) {
+        headers.set("Authorization", `Token ${token}`);
+    }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    body:
-      isJsonBody && typeof options.body !== "string"
-        ? JSON.stringify(options.body)
-        : options.body,
-  });
+    const response = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+        body:
+            isJsonBody && typeof options.body !== "string"
+                ? JSON.stringify(options.body)
+                : options.body,
+    });
 
-  if (response.status === 204) {
-    return null;
-  }
+    if (response.status === 204) {
+        return null;
+    }
 
-  const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    const detail =
-      data?.detail ||
-      data?.title?.[0] ||
-      data?.book_id?.[0] ||
-      data?.non_field_errors?.[0] ||
-      "Request failed.";
-    throw new Error(detail);
-  }
+    if (!response.ok) {
+        const detail =
+            data?.detail ||
+            data?.title?.[0] ||
+            data?.book_id?.[0] ||
+            data?.non_field_errors?.[0] ||
+            data?.rating?.[0] ||
+            "Request failed.";
+        throw new Error(detail);
+    }
 
-  return data;
+    return data;
 }
 
 function toQueryString(params = {}) {
-  const search = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      search.set(key, value);
-    }
-  });
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+            search.set(key, value);
+        }
+    });
+    const qs = search.toString();
+    return qs ? `?${qs}` : "";
 }
 
 export const api = {
-  register(payload) {
-    return request("/auth/register/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    register(payload) {
+        return request("/auth/register/", {
+            method: "POST",
+            body: payload,
+        });
+    },
 
-  login(payload) {
-    return request("/auth/login/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    login(payload) {
+        return request("/auth/login/", {
+            method: "POST",
+            body: payload,
+        });
+    },
 
-  logout() {
-    return request("/auth/logout/", {
-      method: "POST",
-    });
-  },
+    logout() {
+        return request("/auth/logout/", {
+            method: "POST",
+        });
+    },
 
-  getMe() {
-    return request("/auth/me/");
-  },
+    getMe() {
+        return request("/auth/me/");
+    },
 
-  getBooks(params = {}) {
-    return request(`/books/${toQueryString(params)}`);
-  },
+    getBooks(params = {}) {
+        return request(`/books/${toQueryString(params)}`);
+    },
 
-  getBook(bookId) {
-    return request(`/books/${bookId}/`);
-  },
+    getBookFilterOptions() {
+        return request("/books/filter-options/");
+    },
 
-  getBookReviews(bookId) {
-    return request(`/books/${bookId}/reviews/`);
-  },
+    getBook(bookId) {
+        return request(`/books/${bookId}/`);
+    },
 
-  createBook(payload) {
-    return request("/books/create/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    getBookReviews(bookId) {
+        return request(`/books/${bookId}/reviews/`);
+    },
 
-  getRecommendations() {
-    return request("/social/recommendations/");
-  },
+    createBook(payload) {
+        return request("/books/create/", {
+            method: "POST",
+            body: payload,
+        });
+    },
 
-  getFeed() {
-    return request("/social/feed/");
-  },
+    getRecommendations() {
+        return request("/social/recommendations/");
+    },
 
-  getSavedBooks() {
-    return request("/social/saved-books/");
-  },
+    getFeed() {
+        return request("/social/feed/");
+    },
 
-  saveBook(bookId) {
-    return request("/social/saved-books/", {
-      method: "POST",
-      body: { book_id: bookId },
-    });
-  },
+    getSavedBooks() {
+        return request("/social/saved-books/");
+    },
 
-  removeSavedBook(bookId) {
-    return request(`/social/saved-books/${bookId}/`, {
-      method: "DELETE",
-    });
-  },
+    saveBook(bookId) {
+        return request("/social/saved-books/", {
+            method: "POST",
+            body: { book_id: bookId },
+        });
+    },
 
-  getMyProfile() {
-    return request("/social/profile/");
-  },
+    removeSavedBook(bookId) {
+        return request(`/social/saved-books/${bookId}/`, {
+            method: "DELETE",
+        });
+    },
 
-  getPublicProfile(username) {
-    return request(`/social/users/${username}/`);
-  },
+    getMyProfile() {
+        return request("/social/profile/");
+    },
 
-  getFriends() {
-    return request("/social/friends/");
-  },
+    getPublicProfile(username) {
+        return request(`/social/users/${username}/`);
+    },
 
-  getShelves() {
-    return request("/social/shelves/");
-  },
+    getFriends() {
+        return request("/social/friends/");
+    },
 
-  createShelf(payload) {
-    return request("/social/shelves/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    searchUsers(query) {
+        if (!query.trim()) {
+            return Promise.resolve([]);
+        }
+        return request(`/social/user-search/${toQueryString({ q: query })}`);
+    },
 
-  updateShelf(shelfId, payload) {
-    return request(`/social/shelves/${shelfId}/`, {
-      method: "PATCH",
-      body: payload,
-    });
-  },
+    followUser(userId) {
+        return request("/social/follows/", {
+            method: "POST",
+            body: { following_id: userId },
+        });
+    },
 
-  addBookToShelf(shelfId, bookId) {
-    return request(`/social/shelves/${shelfId}/items/`, {
-      method: "POST",
-      body: { book_id: bookId },
-    });
-  },
+    unfollow(followId) {
+        return request(`/social/follows/${followId}/`, {
+            method: "DELETE",
+        });
+    },
 
-  removeShelfItem(shelfId, itemId) {
-    return request(`/social/shelves/${shelfId}/items/${itemId}/`, {
-      method: "DELETE",
-    });
-  },
+    removeFollower(userId) {
+        return request(`/social/followers/${userId}/remove/`, {
+            method: "DELETE",
+        });
+    },
 
-  createReadingLog(payload) {
-    return request("/social/logs/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    getShelves() {
+        return request("/social/shelves/");
+    },
 
-  createReview(payload) {
-    return request("/social/reviews/", {
-      method: "POST",
-      body: payload,
-    });
-  },
+    createShelf(payload) {
+        return request("/social/shelves/", {
+            method: "POST",
+            body: payload,
+        });
+    },
+
+    updateShelf(shelfId, payload) {
+        return request(`/social/shelves/${shelfId}/`, {
+            method: "PATCH",
+            body: payload,
+        });
+    },
+
+    addBookToShelf(shelfId, bookId) {
+        return request(`/social/shelves/${shelfId}/items/`, {
+            method: "POST",
+            body: { book_id: bookId },
+        });
+    },
+
+    removeShelfItem(shelfId, itemId) {
+        return request(`/social/shelves/${shelfId}/items/${itemId}/`, {
+            method: "DELETE",
+        });
+    },
+
+    createReadingLog(payload) {
+        return request("/social/logs/", {
+            method: "POST",
+            body: payload,
+        });
+    },
+
+    deleteReadingLog(logId) {
+        return request(`/social/logs/${logId}/`, {
+            method: "DELETE",
+        });
+    },
+
+    finishReading(logId, payload) {
+        return request(`/social/logs/${logId}/finish/`, {
+            method: "POST",
+            body: payload,
+        });
+    },
+
+    createReview(payload) {
+        return request("/social/reviews/", {
+            method: "POST",
+            body: payload,
+        });
+    },
 };
