@@ -1,7 +1,35 @@
 const API_BASE = "/api";
 
+class ApiError extends Error {
+    constructor(message, fields = {}) {
+        super(message);
+        this.name = "ApiError";
+        this.fields = fields;
+    }
+}
+
 function getToken() {
     return localStorage.getItem("shelfed_token");
+}
+
+function firstErrorMessage(value) {
+    if (Array.isArray(value)) return value[0];
+    if (typeof value === "string") return value;
+    return "";
+}
+
+function extractFieldErrors(data = {}) {
+    const fieldErrors = {};
+
+    Object.entries(data).forEach(([key, value]) => {
+        if (key === "detail" || key === "non_field_errors") return;
+        const message = firstErrorMessage(value);
+        if (message) {
+            fieldErrors[key] = message;
+        }
+    });
+
+    return fieldErrors;
 }
 
 async function request(path, options = {}) {
@@ -40,12 +68,13 @@ async function request(path, options = {}) {
     if (!response.ok) {
         const detail =
             data?.detail ||
+            data?.non_field_errors?.[0] ||
             data?.title?.[0] ||
             data?.book_id?.[0] ||
-            data?.non_field_errors?.[0] ||
             data?.rating?.[0] ||
             "Request failed.";
-        throw new Error(detail);
+
+        throw new ApiError(detail, extractFieldErrors(data));
     }
 
     return data;
@@ -148,9 +177,6 @@ export const api = {
     },
 
     searchUsers(query) {
-        if (!query.trim()) {
-            return Promise.resolve([]);
-        }
         return request(`/social/user-search/${toQueryString({ q: query })}`);
     },
 
@@ -188,6 +214,12 @@ export const api = {
         return request(`/social/shelves/${shelfId}/`, {
             method: "PATCH",
             body: payload,
+        });
+    },
+
+    deleteShelf(shelfId) {
+        return request(`/social/shelves/${shelfId}/`, {
+            method: "DELETE",
         });
     },
 
