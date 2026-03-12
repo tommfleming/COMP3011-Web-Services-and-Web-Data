@@ -1,5 +1,8 @@
-from django.db.models import Q
+from django.db.models import Max, Min, Q
+
 from rest_framework import generics, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Book
 from .serializers import BookCreateSerializer, BookSerializer
@@ -14,8 +17,11 @@ class BookListView(generics.ListAPIView):
         queryset = Book.objects.prefetch_related("authors").all()
 
         query = self.request.query_params.get("q")
-        genre = self.request.query_params.get("genre")
+        title = self.request.query_params.get("title")
         author = self.request.query_params.get("author")
+        genre = self.request.query_params.get("genre")
+        year_min = self.request.query_params.get("year_min")
+        year_max = self.request.query_params.get("year_max")
 
         if query:
             queryset = queryset.filter(
@@ -24,13 +30,54 @@ class BookListView(generics.ListAPIView):
                 | Q(authors__name__icontains=query)
             ).distinct()
 
-        if genre:
-            queryset = queryset.filter(genre__iexact=genre)
+        if title:
+            queryset = queryset.filter(title__icontains=title)
 
         if author:
             queryset = queryset.filter(authors__name__icontains=author).distinct()
 
-        return queryset
+        if genre:
+            queryset = queryset.filter(genre__iexact=genre)
+
+        if year_min:
+            try:
+                queryset = queryset.filter(published_year__gte=int(year_min))
+            except (TypeError, ValueError):
+                pass
+
+        if year_max:
+            try:
+                queryset = queryset.filter(published_year__lte=int(year_max))
+            except (TypeError, ValueError):
+                pass
+
+        return queryset.distinct()
+
+
+class BookFilterOptionsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        genres = list(
+            Book.objects.exclude(genre__isnull=True)
+            .exclude(genre__exact="")
+            .values_list("genre", flat=True)
+            .distinct()
+            .order_by("genre")
+        )
+
+        year_stats = Book.objects.exclude(published_year__isnull=True).aggregate(
+            min_year=Min("published_year"),
+            max_year=Max("published_year"),
+        )
+
+        return Response(
+            {
+                "genres": genres,
+                "min_year": year_stats["min_year"] or 1900,
+                "max_year": year_stats["max_year"] or 2026,
+            }
+        )
 
 
 class BookDetailView(generics.RetrieveAPIView):

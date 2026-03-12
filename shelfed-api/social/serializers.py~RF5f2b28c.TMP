@@ -148,12 +148,6 @@ class FollowSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class FinishReadingSerializer(serializers.Serializer):
-    finished_at = serializers.DateField()
-    rating = serializers.IntegerField(min_value=1, max_value=5)
-    text = serializers.CharField(required=False, allow_blank=True)
-
-
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 

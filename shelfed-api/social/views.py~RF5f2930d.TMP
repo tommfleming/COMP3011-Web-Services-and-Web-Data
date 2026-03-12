@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.db import transaction
 from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
 
@@ -12,7 +11,6 @@ from books.models import Book
 from books.serializers import BookSerializer
 from .models import Follow, ReadingLog, Review, Shelf, ShelfItem
 from .serializers import (
-    FinishReadingSerializer,
     FollowSerializer,
     ReadingLogSerializer,
     ReviewSerializer,
@@ -162,7 +160,6 @@ class ReadingLogListCreateView(generics.ListCreateAPIView):
             ReadingLog.objects.filter(user=self.request.user)
             .select_related("book")
             .prefetch_related("book__authors")
-            .order_by("-updated_at")
         )
 
     def perform_create(self, serializer):
@@ -178,41 +175,6 @@ class ReadingLogDetailView(generics.RetrieveUpdateDestroyAPIView):
             ReadingLog.objects.filter(user=self.request.user)
             .select_related("book")
             .prefetch_related("book__authors")
-        )
-
-
-class FinishReadingView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        log = get_object_or_404(
-            ReadingLog.objects.select_related("book").prefetch_related("book__authors"),
-            pk=pk,
-            user=request.user,
-        )
-
-        serializer = FinishReadingSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        with transaction.atomic():
-            log.status = "finished"
-            log.finished_at = serializer.validated_data["finished_at"]
-            log.save()
-
-            review, _ = Review.objects.update_or_create(
-                user=request.user,
-                book=log.book,
-                defaults={
-                    "rating": serializer.validated_data["rating"],
-                    "text": serializer.validated_data.get("text", ""),
-                },
-            )
-
-        return Response(
-            {
-                "log": ReadingLogSerializer(log, context={"request": request}).data,
-                "review": ReviewSerializer(review, context={"request": request}).data,
-            }
         )
 
 
@@ -266,96 +228,33 @@ class FriendsListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        following_relationships = list(
-            Follow.objects.filter(follower=request.user)
-            .select_related("following")
-            .order_by("following__username")
-        )
-        follower_relationships = list(
-            Follow.objects.filter(following=request.user)
-            .select_related("follower")
-            .order_by("follower__username")
-        )
-
-        follower_id_set = {relationship.follower_id for relationship in follower_relationships}
-        following_id_set = {relationship.following_id for relationship in following_relationships}
-
-        friends = []
-        following_only = []
-        followers_only = []
-
-        for relationship in following_relationships:
-            payload = {
-                "user": SimpleUserSerializer(relationship.following).data,
-                "follow_id": relationship.id,
-            }
-
-            if relationship.following_id in follower_id_set:
-                payload["follower_user_id"] = relationship.following_id
-                friends.append(payload)
-            else:
-                following_only.append(payload)
-
-        for relationship in follower_relationships:
-            if relationship.follower_id not in following_id_set:
-                followers_only.append(
-                    {
-                        "user": SimpleUserSerializer(relationship.follower).data,
-                        "follower_user_id": relationship.follower_id,
-                    }
-                )
-
-        return Response(
-            {
-                "friends": friends,
-                "following_only": following_only,
-                "followers_only": followers_only,
-            }
-        )
-
-
-class UserSearchView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        query = request.query_params.get("q", "").strip()
-
-        if not query:
-            return Response([])
-
         following_ids = set(
             Follow.objects.filter(follower=request.user).values_list("following_id", flat=True)
         )
-
-        users = (
-            User.objects.filter(username__icontains=query)
-            .exclude(id=request.user.id)
-            .order_by("username")[:10]
+        follower_ids = set(
+            Follow.objects.filter(following=request.user).values_list("follower_id", flat=True)
         )
+
+        mutual_ids = following_ids & follower_ids
+        following_only_ids = following_ids - mutual_ids
+        followers_only_ids = follower_ids - mutual_ids
 
         return Response(
-            [
-                {
-                    "id": user.id,
-                    "username": user.username,
-                    "is_following": user.id in following_ids,
-                }
-                for user in users
-            ]
+            {
+                "friends": SimpleUserSerializer(
+                    User.objects.filter(id__in=mutual_ids).order_by("username"),
+                    many=True,
+                ).data,
+                "following_only": SimpleUserSerializer(
+                    User.objects.filter(id__in=following_only_ids).order_by("username"),
+                    many=True,
+                ).data,
+                "followers_only": SimpleUserSerializer(
+                    User.objects.filter(id__in=followers_only_ids).order_by("username"),
+                    many=True,
+                ).data,
+            }
         )
-
-
-class RemoveFollowerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def delete(self, request, user_id):
-        relationship = get_object_or_404(
-            Follow,
-            follower_id=user_id,
-            following=request.user,
-        )
-        relationship.delete()
-        return Response(status=204)
 
 
 class MyProfileView(APIView):
@@ -364,18 +263,11 @@ class MyProfileView(APIView):
     def get(self, request):
         saved_shelf = get_or_create_saved_shelf(request.user)
 
-        current_reads = (
-            ReadingLog.objects.filter(user=request.user, status="reading")
-            .select_related("book")
-            .prefetch_related("book__authors")
-            .order_by("-updated_at")
-        )
-
         recent_reads = (
             ReadingLog.objects.filter(user=request.user, status="finished")
             .select_related("book")
             .prefetch_related("book__authors")
-            .order_by("-finished_at", "-updated_at")[:5]
+            .order_by("-updated_at")[:5]
         )
 
         shelves = (
@@ -398,7 +290,6 @@ class MyProfileView(APIView):
                     "following": Follow.objects.filter(follower=request.user).count(),
                     "saved_books": ShelfItem.objects.filter(shelf=saved_shelf).count(),
                 },
-                "currently_reading": ReadingLogSerializer(current_reads, many=True).data,
                 "recent_reads": ReadingLogSerializer(recent_reads, many=True).data,
                 "shelves": ShelfSerializer(shelves, many=True).data,
             }
@@ -580,11 +471,7 @@ class RecommendationView(APIView):
         if top_author_ids:
             recommendation_filter |= Q(authors__id__in=top_author_ids)
 
-        recommendations = (
-            recommendations.filter(recommendation_filter)
-            .distinct()
-            .prefetch_related("authors")[:12]
-        )
+        recommendations = recommendations.filter(recommendation_filter).distinct().prefetch_related("authors")[:12]
 
         data = []
         for book in recommendations:
