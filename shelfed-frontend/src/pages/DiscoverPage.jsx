@@ -19,6 +19,8 @@ function DiscoverPage() {
 
     const [books, setBooks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
+    const [savedBookIds, setSavedBookIds] = useState(new Set());
+
     const [isLoadingBooks, setIsLoadingBooks] = useState(true);
     const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
     const [error, setError] = useState("");
@@ -46,9 +48,12 @@ function DiscoverPage() {
     useEffect(() => {
         if (!isAuthenticated) {
             setRecommendations([]);
+            setSavedBookIds(new Set());
             return;
         }
+
         loadRecommendations();
+        loadSavedBooks();
     }, [isAuthenticated]);
 
     async function loadFilterOptions() {
@@ -86,10 +91,31 @@ function DiscoverPage() {
         }
     }
 
-    async function handleSave(bookId) {
+    async function loadSavedBooks() {
         try {
-            await api.saveBook(bookId);
-            setSaveNotice("Saved to your Saved Books.");
+            const data = await api.getSavedBooks();
+            setSavedBookIds(new Set((data || []).map((book) => book.id)));
+        } catch (_err) {
+            setSavedBookIds(new Set());
+        }
+    }
+
+    async function handleToggleSave(bookId, isSaved) {
+        try {
+            if (isSaved) {
+                await api.removeSavedBook(bookId);
+                setSavedBookIds((current) => {
+                    const next = new Set(current);
+                    next.delete(bookId);
+                    return next;
+                });
+                setSaveNotice("Removed from Saved Books.");
+            } else {
+                await api.saveBook(bookId);
+                setSavedBookIds((current) => new Set([...current, bookId]));
+                setSaveNotice("Saved to your Saved Books.");
+            }
+
             window.clearTimeout(window.__shelfedSaveTimer);
             window.__shelfedSaveTimer = window.setTimeout(() => {
                 setSaveNotice("");
@@ -148,20 +174,30 @@ function DiscoverPage() {
 
     function handleReset() {
         if (!filterOptions) return;
-        setSearchParams({});
-        setFilters({
+
+        const resetFilters = {
             title: "",
             author: "",
             genre: "",
             year_min: filterOptions.min_year,
             year_max: filterOptions.max_year,
-        });
+        };
+
+        setFilters(resetFilters);
+        setSearchParams({});
     }
 
     const minYear = filterOptions?.min_year ?? 1900;
     const maxYear = filterOptions?.max_year ?? 2026;
     const selectedMin = Number(filters.year_min || minYear);
     const selectedMax = Number(filters.year_max || maxYear);
+
+    const hasActiveFilters =
+        Boolean(filters.title) ||
+        Boolean(filters.author) ||
+        Boolean(filters.genre) ||
+        selectedMin !== minYear ||
+        selectedMax !== maxYear;
 
     const rangePercentages = useMemo(() => {
         if (maxYear === minYear) {
@@ -182,37 +218,13 @@ function DiscoverPage() {
                         <p className="eyebrow">Discover</p>
                         <h1>Find books you might like</h1>
                         <p className="muted">
-                            Recommendations appear first, but you can always keep searching and filtering below.
+                            Recommendations are shown first, and you can always search and filter below.
                         </p>
                     </div>
                 </div>
 
                 {saveNotice && <p className="inline-toast">{saveNotice}</p>}
                 {error && <p className="form-error">{error}</p>}
-
-                {isAuthenticated && (
-                    <div className="stack">
-                        <h2>Recommended for you</h2>
-                        {isLoadingRecommendations ? (
-                            <div className="panel">Loading recommendations…</div>
-                        ) : recommendations.length === 0 ? (
-                            <div className="panel">
-                                You do not have personalised recommendations yet. Rate more books to improve this section.
-                            </div>
-                        ) : (
-                            <div className="book-grid">
-                                {recommendations.map((book) => (
-                                    <BookCard
-                                        key={`recommended-${book.id}`}
-                                        book={book}
-                                        showSave
-                                        onSave={handleSave}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 <form className="card form-stack" onSubmit={handleSubmit}>
                     <h2>Search and filter</h2>
@@ -300,6 +312,31 @@ function DiscoverPage() {
                     </div>
                 </form>
 
+                {isAuthenticated && !hasActiveFilters && (
+                    <div className="stack">
+                        <h2>Recommended for you</h2>
+                        {isLoadingRecommendations ? (
+                            <div className="panel">Loading recommendations…</div>
+                        ) : recommendations.length === 0 ? (
+                            <div className="panel">
+                                You do not have personalised recommendations yet. Rate more books to improve this section.
+                            </div>
+                        ) : (
+                            <div className="book-grid">
+                                {recommendations.map((book) => (
+                                    <BookCard
+                                        key={`recommended-${book.id}`}
+                                        book={book}
+                                        showSave={isAuthenticated}
+                                        isSaved={savedBookIds.has(book.id)}
+                                        onToggleSave={handleToggleSave}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {isLoadingBooks ? (
                     <div className="panel">Loading books…</div>
                 ) : (
@@ -309,7 +346,8 @@ function DiscoverPage() {
                                 key={book.id}
                                 book={book}
                                 showSave={isAuthenticated}
-                                onSave={handleSave}
+                                isSaved={savedBookIds.has(book.id)}
+                                onToggleSave={handleToggleSave}
                             />
                         ))}
                     </div>
