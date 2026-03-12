@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import BookCard from "../components/BookCard";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import BookCard from "../components/BookCard";
 import { useAuth } from "../context/AuthContext";
 
 function DiscoverPage() {
     const { isAuthenticated } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
 
+    const [filterOptions, setFilterOptions] = useState(null);
     const [filters, setFilters] = useState({
         title: "",
         author: "",
@@ -13,62 +16,56 @@ function DiscoverPage() {
         year_min: "",
         year_max: "",
     });
-    const [filterOptions, setFilterOptions] = useState({
-        genres: [],
-        min_year: 1900,
-        max_year: 2026,
-    });
 
     const [books, setBooks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
-    const [error, setError] = useState("");
-    const [notice, setNotice] = useState("");
-    const [noticeType, setNoticeType] = useState("success");
     const [isLoadingBooks, setIsLoadingBooks] = useState(true);
-    const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(isAuthenticated);
+    const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+    const [error, setError] = useState("");
+    const [saveNotice, setSaveNotice] = useState("");
 
     useEffect(() => {
-        initialisePage();
+        loadFilterOptions();
     }, []);
+
+    useEffect(() => {
+        if (!filterOptions) return;
+
+        const nextFilters = {
+            title: searchParams.get("title") || "",
+            author: searchParams.get("author") || "",
+            genre: searchParams.get("genre") || "",
+            year_min: Number(searchParams.get("year_min") || filterOptions.min_year),
+            year_max: Number(searchParams.get("year_max") || filterOptions.max_year),
+        };
+
+        setFilters(nextFilters);
+        loadBooks(nextFilters);
+    }, [filterOptions, searchParams]);
 
     useEffect(() => {
         if (!isAuthenticated) {
             setRecommendations([]);
             return;
         }
-        fetchRecommendations();
+        loadRecommendations();
     }, [isAuthenticated]);
 
-    async function initialisePage() {
-        setError("");
-        setIsLoadingBooks(true);
-
+    async function loadFilterOptions() {
         try {
-            const [bookData, filterData] = await Promise.all([
-                api.getBooks(),
-                api.getBookFilterOptions(),
-            ]);
-
-            setBooks(bookData.results || []);
-            setFilterOptions(filterData);
-
-            setFilters((current) => ({
-                ...current,
-                year_min: filterData.min_year,
-                year_max: filterData.max_year,
-            }));
+            const data = await api.getBookFilterOptions();
+            setFilterOptions(data);
         } catch (err) {
             setError(err.message);
-        } finally {
-            setIsLoadingBooks(false);
         }
     }
 
-    async function fetchBooks(customFilters = filters) {
-        setError("");
+    async function loadBooks(nextFilters) {
         setIsLoadingBooks(true);
+        setError("");
+
         try {
-            const data = await api.getBooks(customFilters);
+            const data = await api.getBooks(nextFilters);
             setBooks(data.results || []);
         } catch (err) {
             setError(err.message);
@@ -77,11 +74,11 @@ function DiscoverPage() {
         }
     }
 
-    async function fetchRecommendations() {
+    async function loadRecommendations() {
         setIsLoadingRecommendations(true);
         try {
             const data = await api.getRecommendations();
-            setRecommendations(data);
+            setRecommendations(data || []);
         } catch (_err) {
             setRecommendations([]);
         } finally {
@@ -90,56 +87,92 @@ function DiscoverPage() {
     }
 
     async function handleSave(bookId) {
-        setNotice("");
         try {
             await api.saveBook(bookId);
-            setNoticeType("success");
-            setNotice("Saved for later.");
+            setSaveNotice("Saved to your Saved Books.");
+            window.clearTimeout(window.__shelfedSaveTimer);
+            window.__shelfedSaveTimer = window.setTimeout(() => {
+                setSaveNotice("");
+            }, 2200);
         } catch (err) {
-            setNoticeType("error");
-            setNotice(err.message);
+            setSaveNotice(err.message);
+            window.clearTimeout(window.__shelfedSaveTimer);
+            window.__shelfedSaveTimer = window.setTimeout(() => {
+                setSaveNotice("");
+            }, 2200);
         }
     }
 
     function handleChange(event) {
         const { name, value } = event.target;
-        setFilters((current) => ({ ...current, [name]: value }));
-    }
-
-    function handleYearMinChange(event) {
-        const value = Number(event.target.value);
         setFilters((current) => ({
             ...current,
-            year_min: value,
-            year_max: Number(current.year_max) < value ? value : current.year_max,
+            [name]: value,
         }));
     }
 
-    function handleYearMaxChange(event) {
-        const value = Number(event.target.value);
+    function handleMinYearChange(event) {
+        const nextMin = Number(event.target.value);
         setFilters((current) => ({
             ...current,
-            year_max: value,
-            year_min: Number(current.year_min) > value ? value : current.year_min,
+            year_min: nextMin,
+            year_max: Math.max(Number(current.year_max), nextMin),
         }));
     }
 
-    async function handleSubmit(event) {
+    function handleMaxYearChange(event) {
+        const nextMax = Number(event.target.value);
+        setFilters((current) => ({
+            ...current,
+            year_max: nextMax,
+            year_min: Math.min(Number(current.year_min), nextMax),
+        }));
+    }
+
+    function handleSubmit(event) {
         event.preventDefault();
-        await fetchBooks();
+
+        const nextParams = {};
+        if (filters.title) nextParams.title = filters.title;
+        if (filters.author) nextParams.author = filters.author;
+        if (filters.genre) nextParams.genre = filters.genre;
+        if (filterOptions && Number(filters.year_min) !== Number(filterOptions.min_year)) {
+            nextParams.year_min = filters.year_min;
+        }
+        if (filterOptions && Number(filters.year_max) !== Number(filterOptions.max_year)) {
+            nextParams.year_max = filters.year_max;
+        }
+
+        setSearchParams(nextParams);
     }
 
-    async function handleReset() {
-        const resetFilters = {
+    function handleReset() {
+        if (!filterOptions) return;
+        setSearchParams({});
+        setFilters({
             title: "",
             author: "",
             genre: "",
             year_min: filterOptions.min_year,
             year_max: filterOptions.max_year,
-        };
-        setFilters(resetFilters);
-        await fetchBooks(resetFilters);
+        });
     }
+
+    const minYear = filterOptions?.min_year ?? 1900;
+    const maxYear = filterOptions?.max_year ?? 2026;
+    const selectedMin = Number(filters.year_min || minYear);
+    const selectedMax = Number(filters.year_max || maxYear);
+
+    const rangePercentages = useMemo(() => {
+        if (maxYear === minYear) {
+            return { left: 0, right: 0 };
+        }
+
+        const left = ((selectedMin - minYear) / (maxYear - minYear)) * 100;
+        const right = 100 - ((selectedMax - minYear) / (maxYear - minYear)) * 100;
+
+        return { left, right };
+    }, [selectedMin, selectedMax, minYear, maxYear]);
 
     return (
         <section className="page-grid">
@@ -147,18 +180,15 @@ function DiscoverPage() {
                 <div className="page-heading">
                     <div>
                         <p className="eyebrow">Discover</p>
-                        <h1>Recommended and searchable books</h1>
+                        <h1>Find books you might like</h1>
                         <p className="muted">
-                            Search by title and author, then filter by genre and publication year.
+                            Recommendations appear first, but you can always keep searching and filtering below.
                         </p>
                     </div>
                 </div>
 
-                {notice && (
-                    <p className={noticeType === "error" ? "form-error" : "form-success"}>
-                        {notice}
-                    </p>
-                )}
+                {saveNotice && <p className="inline-toast">{saveNotice}</p>}
+                {error && <p className="form-error">{error}</p>}
 
                 {isAuthenticated && (
                     <div className="stack">
@@ -167,7 +197,7 @@ function DiscoverPage() {
                             <div className="panel">Loading recommendations…</div>
                         ) : recommendations.length === 0 ? (
                             <div className="panel">
-                                No personalised recommendations yet. Add a few ratings or follow some readers.
+                                You do not have personalised recommendations yet. Rate more books to improve this section.
                             </div>
                         ) : (
                             <div className="book-grid">
@@ -185,6 +215,8 @@ function DiscoverPage() {
                 )}
 
                 <form className="card form-stack" onSubmit={handleSubmit}>
+                    <h2>Search and filter</h2>
+
                     <div className="filter-grid filter-grid--discover">
                         <label>
                             Title
@@ -192,7 +224,7 @@ function DiscoverPage() {
                                 name="title"
                                 value={filters.title}
                                 onChange={handleChange}
-                                placeholder="Dune"
+                                placeholder="Search by title"
                             />
                         </label>
 
@@ -202,7 +234,7 @@ function DiscoverPage() {
                                 name="author"
                                 value={filters.author}
                                 onChange={handleChange}
-                                placeholder="Frank Herbert"
+                                placeholder="Search by author"
                             />
                         </label>
 
@@ -210,7 +242,7 @@ function DiscoverPage() {
                             Genre
                             <select name="genre" value={filters.genre} onChange={handleChange}>
                                 <option value="">All genres</option>
-                                {filterOptions.genres.map((genre) => (
+                                {(filterOptions?.genres || []).map((genre) => (
                                     <option key={genre} value={genre}>
                                         {genre}
                                     </option>
@@ -219,29 +251,38 @@ function DiscoverPage() {
                         </label>
 
                         <div className="filter-grid__full">
-                            <label>
-                                Published year range
-                                <div className="range-controls">
-                                    <div className="range-values">
-                                        <span>{filters.year_min || filterOptions.min_year}</span>
-                                        <span>{filters.year_max || filterOptions.max_year}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min={filterOptions.min_year}
-                                        max={filterOptions.max_year}
-                                        value={filters.year_min || filterOptions.min_year}
-                                        onChange={handleYearMinChange}
-                                    />
-                                    <input
-                                        type="range"
-                                        min={filterOptions.min_year}
-                                        max={filterOptions.max_year}
-                                        value={filters.year_max || filterOptions.max_year}
-                                        onChange={handleYearMaxChange}
-                                    />
-                                </div>
-                            </label>
+                            <span className="label-heading">Published year</span>
+                            <div className="range-values">
+                                <span>{selectedMin}</span>
+                                <span>{selectedMax}</span>
+                            </div>
+
+                            <div className="dual-range">
+                                <div className="dual-range__track" />
+                                <div
+                                    className="dual-range__selected"
+                                    style={{
+                                        left: `${rangePercentages.left}%`,
+                                        right: `${rangePercentages.right}%`,
+                                    }}
+                                />
+                                <input
+                                    className="dual-range__input"
+                                    type="range"
+                                    min={minYear}
+                                    max={maxYear}
+                                    value={selectedMin}
+                                    onChange={handleMinYearChange}
+                                />
+                                <input
+                                    className="dual-range__input"
+                                    type="range"
+                                    min={minYear}
+                                    max={maxYear}
+                                    value={selectedMax}
+                                    onChange={handleMaxYearChange}
+                                />
+                            </div>
                         </div>
 
                         <div className="filter-actions">
@@ -258,8 +299,6 @@ function DiscoverPage() {
                         </div>
                     </div>
                 </form>
-
-                {error && <p className="form-error">{error}</p>}
 
                 {isLoadingBooks ? (
                     <div className="panel">Loading books…</div>
