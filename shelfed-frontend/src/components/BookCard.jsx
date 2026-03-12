@@ -1,14 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 
-function BookCard({ book, showSave = false, onSave }) {
+function BookCard({ book, showSave = false, isSaved = false, onToggleSave }) {
     const location = useLocation();
     const from = `${location.pathname}${location.search}`;
 
-    function handleSave(event) {
+    function handleToggleSave(event) {
         event.preventDefault();
         event.stopPropagation();
-        if (onSave) {
-            onSave(book.id);
+
+        if (onToggleSave) {
+            onToggleSave(book.id, isSaved);
         }
     }
 
@@ -52,8 +53,12 @@ function BookCard({ book, showSave = false, onSave }) {
 
             {showSave && (
                 <div className="book-card__actions">
-                    <button className="button button--ghost" type="button" onClick={handleSave}>
-                        Save
+                    <button
+                        className="button button--ghost"
+                        type="button"
+                        onClick={handleToggleSave}
+                    >
+                        {isSaved ? "Unsave" : "Save"}
                     </button>
                 </div>
             )}
