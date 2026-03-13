@@ -57,13 +57,17 @@ function BookCard({ book, showSave = false, isSaved = false, onToggleSave }) {
                     </button>
 
                     {recommendationHint && (
-                        <span
-                            className="book-card__hint"
-                            title={recommendationHint}
-                            aria-label="Why this book was recommended"
-                        >
-                            ?
-                        </span>
+                        <div className="tooltip">
+                            <button
+                                type="button"
+                                className="book-card__hint"
+                                aria-label="Why this book was recommended"
+                                onClick={(event) => event.preventDefault()}
+                            >
+                                ?
+                            </button>
+                            <div className="tooltip__bubble">{recommendationHint}</div>
+                        </div>
                     )}
                 </div>
             )}

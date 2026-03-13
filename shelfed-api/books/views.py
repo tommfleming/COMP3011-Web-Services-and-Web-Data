@@ -79,7 +79,7 @@ class BookFilterOptionsView(APIView):
             max_year=Max("published_year"),
         )
 
-        min_year_raw = year_stats["min_year"]
+        min_year_raw = year_stats["min_year"] or 1700
         min_year = (min_year_raw // 10) * 10
         max_year = 2026
 

@@ -694,3 +694,53 @@ select {
     color: var(--muted);
     background: #fff;
 }
+
+.tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.book-card__hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: help;
+    color: var(--muted);
+    background: #fff;
+    padding: 0;
+}
+
+.tooltip__bubble {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: 280px;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.75rem;
+    background: #111827;
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 30;
+    text-align: left;
+}
+
+.tooltip:hover .tooltip__bubble,
+.tooltip:focus-within .tooltip__bubble {
+    opacity: 1;
+    visibility: visible;
+}
