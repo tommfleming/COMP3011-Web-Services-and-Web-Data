@@ -679,3 +679,18 @@ select {
         grid-template-columns: 1fr;
     }
 }
+
+.book-card__hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: help;
+    color: var(--muted);
+    background: #fff;
+}

@@ -13,6 +13,9 @@ function BookCard({ book, showSave = false, isSaved = false, onToggleSave }) {
         }
     }
 
+    const recommendationHint =
+        book.reasons?.length > 0 ? book.reasons.join(" • ") : "";
+
     return (
         <article className="book-card card">
             <Link
@@ -40,14 +43,6 @@ function BookCard({ book, showSave = false, isSaved = false, onToggleSave }) {
                         {book.genre && <span className="badge">{book.genre}</span>}
                         {book.published_year && <span className="badge">{book.published_year}</span>}
                     </div>
-
-                    {book.reasons?.length > 0 && (
-                        <ul className="reasons-list">
-                            {book.reasons.map((reason) => (
-                                <li key={reason}>{reason}</li>
-                            ))}
-                        </ul>
-                    )}
                 </div>
             </Link>
 
@@ -60,6 +55,16 @@ function BookCard({ book, showSave = false, isSaved = false, onToggleSave }) {
                     >
                         {isSaved ? "Unsave" : "Save"}
                     </button>
+
+                    {recommendationHint && (
+                        <span
+                            className="book-card__hint"
+                            title={recommendationHint}
+                            aria-label="Why this book was recommended"
+                        >
+                            ?
+                        </span>
+                    )}
                 </div>
             )}
         </article>
