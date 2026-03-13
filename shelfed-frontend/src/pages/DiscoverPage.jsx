@@ -37,8 +37,8 @@ function DiscoverPage() {
             title: searchParams.get("title") || "",
             author: searchParams.get("author") || "",
             genre: searchParams.get("genre") || "",
-            year_min: Number(searchParams.get("year_min") || filterOptions.min_year),
-            year_max: Number(searchParams.get("year_max") || filterOptions.max_year),
+            year_min: searchParams.get("year_min") || "",
+            year_max: searchParams.get("year_max") || "",
         };
 
         setFilters(nextFilters);
@@ -142,19 +142,25 @@ function DiscoverPage() {
 
     function handleMinYearChange(event) {
         const nextMin = Number(event.target.value);
+        const currentMax =
+            filters.year_max === "" ? filterOptions.max_year : Number(filters.year_max);
+
         setFilters((current) => ({
             ...current,
             year_min: nextMin,
-            year_max: Math.max(Number(current.year_max), nextMin),
+            year_max: Math.max(currentMax, nextMin),
         }));
     }
 
     function handleMaxYearChange(event) {
         const nextMax = Number(event.target.value);
+        const currentMin =
+            filters.year_min === "" ? filterOptions.min_year : Number(filters.year_min);
+
         setFilters((current) => ({
             ...current,
             year_max: nextMax,
-            year_min: Math.min(Number(current.year_min), nextMax),
+            year_min: Math.min(currentMin, nextMax),
         }));
     }
 
@@ -165,10 +171,18 @@ function DiscoverPage() {
         if (filters.title) nextParams.title = filters.title;
         if (filters.author) nextParams.author = filters.author;
         if (filters.genre) nextParams.genre = filters.genre;
-        if (filterOptions && Number(filters.year_min) !== Number(filterOptions.min_year)) {
+
+        if (
+            filters.year_min !== "" &&
+            Number(filters.year_min) !== Number(filterOptions.min_year)
+        ) {
             nextParams.year_min = filters.year_min;
         }
-        if (filterOptions && Number(filters.year_max) !== Number(filterOptions.max_year)) {
+
+        if (
+            filters.year_max !== "" &&
+            Number(filters.year_max) !== Number(filterOptions.max_year)
+        ) {
             nextParams.year_max = filters.year_max;
         }
 
@@ -176,31 +190,30 @@ function DiscoverPage() {
     }
 
     function handleReset() {
-        if (!filterOptions) return;
-
-        const resetFilters = {
+        setFilters({
             title: "",
             author: "",
             genre: "",
-            year_min: filterOptions.min_year,
-            year_max: filterOptions.max_year,
-        };
-
-        setFilters(resetFilters);
+            year_min: "",
+            year_max: "",
+        });
         setSearchParams({});
     }
 
     const minYear = filterOptions?.min_year ?? 1900;
     const maxYear = filterOptions?.max_year ?? 2026;
-    const selectedMin = Number(filters.year_min || minYear);
-    const selectedMax = Number(filters.year_max || maxYear);
+
+    const selectedMin =
+        filters.year_min === "" ? minYear : Number(filters.year_min);
+    const selectedMax =
+        filters.year_max === "" ? maxYear : Number(filters.year_max);
 
     const hasActiveFilters =
         Boolean(filters.title) ||
         Boolean(filters.author) ||
         Boolean(filters.genre) ||
-        selectedMin !== minYear ||
-        selectedMax !== maxYear;
+        filters.year_min !== "" ||
+        filters.year_max !== "";
 
     const rangePercentages = useMemo(() => {
         if (maxYear === minYear) {
